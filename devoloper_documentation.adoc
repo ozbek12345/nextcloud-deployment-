@@ -1,0 +1,126 @@
+= Administrationshandbuch: Nextcloud-Installation
+:toc: left
+:toclevels: 4
+:sectnums:
+
+== 1. Serverübersicht und Zugänge
+
+=== 1.1. Hetzner Cloud-Instanz
+// Hier Details zur Instanz eintragen [cite: 166]
+* **Instanz-ID:**
+* **Hostname:**
+* **IP-Adresse (IPv4/IPv6):**
+* **Betriebssystem:** Debian 12 (oder Ubuntu 22.04 LTS) [cite: 113, 114]
+* **Standort:**
+
+=== 1.2. Notfall-Übergabeprozess
+// Prozessbeschreibung für den Notfall [cite: 167]
+
+== 2. Grundlegende Servereinrichtung
+
+=== 2.1. Systemaktualisierung
+// Befehle für apt update/upgrade [cite: 114]
+
+=== 2.2. Systembenutzer 'nextcloud'
+// Befehle zur Erstellung des 'nextcloud' Benutzers [cite: 115]
+
+=== 2.3. Firewall-Konfiguration (ufw)
+// Befehle und Regeln für ufw [cite: 116]
+// - SSH (nur für Büro-Subnetz) [cite: 116]
+// - HTTP (80) [cite: 116]
+// - HTTPS (443) [cite: 116]
+
+== 3. LAMP/LEMP-Stack Installation
+
+=== 3.1. Webserver (Nginx/Apache)
+// Installationsbefehle [cite: 118]
+
+=== 3.2. Datenbank (MariaDB/PostgreSQL)
+// Installations- und Konfigurationsschritte
+
+=== 3.3. PHP-FPM und Erweiterungen
+// Installationsbefehle für PHP und alle benötigten Erweiterungen [cite: 118, 119]
+
+=== 3.4. PHP-Parameter Optimierung
+// Änderungen in php.ini (memory_limit, upload_max_filesize etc.) [cite: 122]
+
+== 4. Nextcloud-Installation und Konfiguration
+
+=== 4.1. Download und Verzeichnis setup
+// Befehle für wget, tar und Verzeichniserstellung [cite: 125]
+// Pfad: /var/www/nextcloud [cite: 121, 125]
+
+=== 4.2. Eigentümer- und Dateirechte
+// chown und chmod Befehle zur Absicherung [cite: 126, 127, 128]
+
+=== 4.3. Webserver-Konfiguration (Virtual Host / Server Block)
+// Inhalt der .conf Datei für Nginx/Apache hier einfügen [cite: 121]
+
+=== 4.4. Web-Installer
+// Schritte zur Durchführung der Web-Installation (Datenbankverbindung) [cite: 129]
+
+== 5. Sicherheit und Verschlüsselung
+
+=== 5.1. HTTPS mit Let's Encrypt (Certbot)
+// Befehle zur Generierung des Zertifikats [cite: 131]
+
+=== 5.2. HTTPS-Erzwingung und HTTP/2
+// Konfigurationsdetails für Redirect und HTTP/2 [cite: 132]
+
+=== 5.3. Nextcloud Interne Verschlüsselung
+// Aktivierung der serverseitigen Verschlüsselung oder E2EE [cite: 138]
+
+== 6. Benutzer- und Datenmanagement (Intern)
+
+=== 6.1. Benutzer und Gruppen
+// Erstellte Gruppen: sales, support, management [cite: 136]
+// Erstellte Benutzer: user01...user20 [cite: 135]
+
+=== 6.2. Ordnerstrukturen und Freigaben
+// Beschreibung der implementierten Ordnerstruktur [cite: 137, 140]
+
+== 7. Backup- und Wiederherstellungsstrategie
+
+=== 7.1. Backup-Skript (backup_nextcloud.sh)
+// Vollständiges Bash-Skript hier einfügen [cite: 142]
+// - Stoppen des Webservers [cite: 143]
+// - Sichern von /var/www/nextcloud [cite: 144]
+// - Sichern der Datenbank (mysqldump) [cite: 145]
+// - Starten des Webservers [cite: 146]
+// - Löschen alter Backups (älter als 14 Tage) [cite: 147]
+
+=== 7.2. Automatisierung (Cron-Job)
+// Crontab-Eintrag für die tägliche Ausführung [cite: 148]
+
+=== 7.3. Dokumentation des Wiederherstellungstests
+// Schritt-für-Schritt-Anleitung zur Wiederherstellung auf einer Testinstanz [cite: 149]
+
+== 8. Monitoring und Logging
+
+=== 8.1. Monitoring-Agent
+// Installation und Konfiguration (z.B. Prometheus Node Exporter) [cite: 151]
+// Überwachte Metriken [cite: 152, 153]
+
+=== 8.2. Zentralisiertes Logging
+// Konfiguration von rsyslog zur Weiterleitung an Graylog [cite: 154]
+// Wichtige Suchanfragen (z.B. 5xx-Statuscodes) [cite: 155]
+
+=== 8.3. Alarmierung
+// Konfiguration der Benachrichtigungen (E-Mail/Slack) [cite: 156]
+
+== 9. Performance-Optimierung (Optional)
+
+=== 9.1. Caching (Redis/APCu)
+// Konfigurationsschritte und Einträge in config.php [cite: 158]
+
+=== 9.2. Reverse Proxy und Gzip
+// Implementierungsdetails [cite: 159]
+
+== 10. Angehängte Konfigurationsdateien
+// Wichtige Konfigurationsdateien als Referenz [cite: 165]
+
+=== 10.1. Nginx Server Block (nextcloud.conf)
+
+=== 10.2. Nextcloud (config.php) (ohne Passwörter!)
+
+=== 10.3. PHP-FPM Pool (www.conf)
