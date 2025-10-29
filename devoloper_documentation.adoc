@@ -7,7 +7,7 @@
 
 === 1.1. Testumgebung (Lokal via UTM)
 * **Virtualisierung:** UTM auf macOS (Apple Silicon)
-* **Hostname:** ozbek (veya VM'inize verdiğiniz ad)
+* **Hostname:** ozbek 
 * **IP-Adresse (Shared):** 192.168.64.2 (via DHCP)
 * **Betriebssystem:** Ubuntu 24.04 LTS (ARM64)
 * **Netzwerk-Modus:** Shared (Internetzugriff via NAT)
@@ -139,4 +139,5 @@ sudo ufw enable
 === 10.2. Nextcloud (config.php) (ohne Passwörter!)
 
 === 10.3. PHP-FPM Pool (www.conf)
+
 
