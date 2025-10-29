@@ -197,11 +197,10 @@ server {
     listen [::]:443 ssl http2;
     server_name 192.168.64.2;
 
-    # SSL Ayarları
+    # SSL Einstellung / Zertifikat Verscjüllselung
     ssl_certificate /etc/nginx/ssl/nextcloud.crt;
     ssl_certificate_key /etc/nginx/ssl/nextcloud.key;
     
-    # SSL Güvenlik Ayarları
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
     ssl_prefer_server_ciphers off;
@@ -246,6 +245,7 @@ server {
     }
 }
 ----
+
 
 
 
