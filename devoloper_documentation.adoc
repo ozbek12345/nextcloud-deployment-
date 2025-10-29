@@ -47,17 +47,40 @@ sudo ufw enable
 
 == 3. LAMP/LEMP-Stack Installation
 
-=== 3.1. Webserver (Nginx/Apache)
-// Installationsbefehle [cite: 118]
+Dieser Abschnitt beschreibt die Installation des "LEMP" Stacks (Linux, Nginx, MariaDB, PHP), der als Grundlage für Nextcloud dient. Vor der Installation der Pakete war ein `sudo apt update` notwendig, um die Paketlisten zu synchronisieren.
 
-=== 3.2. Datenbank (MariaDB/PostgreSQL)
-// Installations- und Konfigurationsschritte
+=== 3.1. Webserver (Nginx)
+Nginx wurde als leistungsstarker Webserver gewählt.
+
+[source,bash]
+----
+sudo apt update
+sudo apt install nginx -y
+----
+Nach der Installation war die Standard-Willkommensseite von Nginx unter `http://192.168.64.2` im Host-Browser erreichbar.
+
+=== 3.2. Datenbank (MariaDB)
+MariaDB wurde als Datenbankserver installiert.
+
+[source,bash]
+----
+sudo apt install mariadb-server -y
+----
+Unmittelbar nach der Installation wurde das `mysql_secure_installation`-Skript ausgeführt, um ein Root-Passwort festzulegen und die Standardeinstellungen abzusichern.
 
 === 3.3. PHP-FPM und Erweiterungen
-// Installationsbefehle für PHP und alle benötigten Erweiterungen [cite: 118, 119]
+PHP-FPM (Version 8.3 auf Ubuntu 24.04) und alle von Nextcloud benötigten Erweiterungen  wurden installiert.
+
+[source,bash]
+----
+sudo apt install php8.3-fpm php8.3-mysql php8.3-curl \
+                 php8.3-gd php8.3-imagick php8.3-mbstring \
+                 php8.3-xml php8.3-zip php8.3-intl \
+                 php8.3-bz2 php8.3-opcache -y
+----
 
 === 3.4. PHP-Parameter Optimierung
-// Änderungen in php.ini (memory_limit, upload_max_filesize etc.) [cite: 122]
+// Dieser Abschnitt wird in einer späteren Phase ausgefüllt.
 
 == 4. Nextcloud-Installation und Konfiguration
 
@@ -139,5 +162,6 @@ sudo ufw enable
 === 10.2. Nextcloud (config.php) (ohne Passwörter!)
 
 === 10.3. PHP-FPM Pool (www.conf)
+
 
 
