@@ -5,13 +5,12 @@
 
 == 1. Serverübersicht und Zugänge
 
-=== 1.1. Hetzner Cloud-Instanz
-// Hier Details zur Instanz eintragen [cite: 166]
-* **Instanz-ID:**
-* **Hostname:**
-* **IP-Adresse (IPv4/IPv6):**
-* **Betriebssystem:** Debian 12 (oder Ubuntu 22.04 LTS) [cite: 113, 114]
-* **Standort:**
+=== 1.1. Testumgebung (Lokal via UTM)
+* **Virtualisierung:** UTM auf macOS (Apple Silicon)
+* **Hostname:** ozbek (veya VM'inize verdiğiniz ad)
+* **IP-Adresse (Shared):** 192.168.64.2 (via DHCP)
+* **Betriebssystem:** Ubuntu 24.04 LTS (ARM64)
+* **Netzwerk-Modus:** Shared (Internetzugriff via NAT)
 
 === 1.2. Notfall-Übergabeprozess
 // Prozessbeschreibung für den Notfall [cite: 167]
@@ -19,16 +18,32 @@
 == 2. Grundlegende Servereinrichtung
 
 === 2.1. Systemaktualisierung
-// Befehle für apt update/upgrade [cite: 114]
+Nach Behebung der DNS-Probleme (Hinzufügen von Nameservern in Netplan) wurde das System auf den neuesten Stand gebracht.
+
+[source,bash]
+----
+sudo apt update && sudo apt upgrade -y
+----
 
 === 2.2. Systembenutzer 'nextcloud'
-// Befehle zur Erstellung des 'nextcloud' Benutzers [cite: 115]
+Ein dedizierter Systembenutzer `nextcloud` ohne Root-Rechte wurde erstellt[cite: 115].
+
+[source,bash]
+----
+sudo adduser nextcloud
+----
 
 === 2.3. Firewall-Konfiguration (ufw)
-// Befehle und Regeln für ufw [cite: 116]
-// - SSH (nur für Büro-Subnetz) [cite: 116]
-// - HTTP (80) [cite: 116]
-// - HTTPS (443) [cite: 116]
+ufw wurde aktiviert. Der SSH-Zugriff wurde auf den UTM-Gateway (Host-Mac) beschränkt. HTTP/HTTPS-Ports wurden für den Dienst geöffnet.
+
+[source,bash]
+----
+# IP 192.168.64.1 ist der Gateway im "Shared" Modus von UTM
+sudo ufw allow from 192.168.64.1 to any port 22 proto tcp
+sudo ufw allow http
+sudo ufw allow https
+sudo ufw enable
+----
 
 == 3. LAMP/LEMP-Stack Installation
 
@@ -124,3 +139,4 @@
 === 10.2. Nextcloud (config.php) (ohne Passwörter!)
 
 === 10.3. PHP-FPM Pool (www.conf)
+
