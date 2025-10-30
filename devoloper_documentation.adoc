@@ -171,10 +171,45 @@ Der Browser zeigt bei `https://192.168.64.2` erwartungsgemäß eine Warnung an (
 == 9. Performance-Optimierung (Optional)
 
 === 9.1. Caching (Redis/APCu)
-// Konfigurationsschritte und Einträge in config.php [cite: 158]
+== 9. Performance-Optimierung (Optional)
 
-=== 9.2. Reverse Proxy und Gzip
-// Implementierungsdetails [cite: 159]
+Wie in der Aufgabe  empfohlen, wurde Redis für das Caching (Local, Distributed und File Locking) aktiviert, um die Gesamtleistung von Nextcloud zu verbessern.
+
+=== 9.1. Caching (Redis/APCu)
+Zuerst wurden Redis und das notwendige PHP-Redis-Modul installiert.
+
+[source,bash]
+----
+sudo apt install redis-server php8.3-redis -y
+sudo systemctl status redis-server
+----
+
+Anschließend wurde die Hauptkonfigurationsdatei von Nextcloud (`config.php`) bearbeitet, um Redis als Memcache-Backend zu definieren.
+
+[source,bash]
+----
+# Bearbeitung als www-data Benutzer, um Berechtigungen beizubehalten
+sudo -u www-data nano /var/www/nextcloud/config/config.php
+----
+
+Folgender Block wurde vor dem abschließenden `);` in `config.php` hinzugefügt:
+[source,php]
+----
+  'memcache.local' => '\OC\Memcache\Redis',
+  'memcache.distributed' => '\OC\Memcache\Redis',
+  'redis' => [
+       'host' => 'localhost',
+       'port' => 6379,
+  ],
+  'memcache.locking' => '\OC\Memcache\Redis',
+----
+
+Abschließend wurden Nginx und PHP-FPM neu gestartet, um die Änderungen zu übernehmen.
+[source,bash]
+----
+sudo systemctl restart nginx
+sudo systemctl restart php8.3-fpm
+----
 
 === 10.1. Nginx Server Block (nextcloud.conf)
 [cite_start]Dies ist die endgültige Konfiguration, die HTTPS (Port 443) mit einem selbstsignierten Zertifikat bereitstellt und HTTP (Port 80) auf HTTPS umleitet[cite: 19, 30].
@@ -245,6 +280,7 @@ server {
     }
 }
 ----
+
 
 
 
