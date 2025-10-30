@@ -2,23 +2,34 @@
 :toc: left
 :toclevels: 4
 :sectnums:
+:sourcedir: .
+
+// Kurze Einleitung: Worum geht es in diesem Projekt?
+Dieses Dokument beschreibt die Installation, Konfiguration und Wartung einer Nextcloud-Instanz auf einer lokalen virtuellen Maschine (UTM).
 
 == 1. Serverübersicht und Zugänge
 
 === 1.1. Testumgebung (Lokal via UTM)
+Für dieses Projekt habe ich eine lokale virtuelle Maschine (VM) mit UTM auf einem Apple Silicon Mac verwendet. Dies war schneller und flexibler als die Nutzung eines Cloud-Anbieters.
+
 * **Virtualisierung:** UTM auf macOS (Apple Silicon)
-* **Hostname:** ozbek 
-* **IP-Adresse (Shared):** 192.168.64.2 (via DHCP)
+* **Hostname:** ozbek (Der Name der VM)
 * **Betriebssystem:** Ubuntu 24.04 LTS (ARM64)
-* **Netzwerk-Modus:** Shared (Internetzugriff via NAT)
+* **Netzwerk-Modus:** "Shared" (Internetzugriff via NAT)
+* **IP-Adresse (Shared):** 192.168.64.2 (Diese IP wurde von UTMs DHCP-Server zugewiesen, nachdem die "Bridged"-Methode Netzwerkprobleme hatte.)
 
 === 1.2. Notfall-Übergabeprozess
-// Prozessbeschreibung für den Notfall [cite: 167]
+Für den Fall, dass ein anderer Administrator übernehmen muss, sind hier die wichtigsten Informationen:
+
+* **Ort der Zugangsdaten:** Alle wichtigen Passwörter (VM-Login, MariaDB-Root, Nextcloud-Admin) sind in einem sicheren Passwort-Manager (z.B. Bitwarden) gespeichert.
+* **Pfad zur Dokumentation:** Dieses GitHub-Repository enthält alle Konfigurationen, Skripte und Schritte, die zur Erstellung des Servers notwendig waren.
+* **Hauptkontakt:** (Name des Administrators, z.B. Max Mustermann)
 
 == 2. Grundlegende Servereinrichtung
+Hier sind die ersten Schritte, die direkt nach der Installation des Betriebssystems durchgeführt wurden.
 
 === 2.1. Systemaktualisierung
-Nach Behebung der DNS-Probleme (Hinzufügen von Nameservern in Netplan) wurde das System auf den neuesten Stand gebracht.
+Zuerst habe ich den Server auf den neuesten Stand gebracht. Das ist wichtig, damit alle Sicherheitspatches installiert sind.
 
 [source,bash]
 ----
@@ -26,7 +37,7 @@ sudo apt update && sudo apt upgrade -y
 ----
 
 === 2.2. Systembenutzer 'nextcloud'
-Ein dedizierter Systembenutzer `nextcloud` ohne Root-Rechte wurde erstellt[cite: 115].
+[cite_start]Wie in der Aufgabe [cite: 115] gefordert, habe ich einen eigenen Systembenutzer für Nextcloud erstellt. Das ist sicherer, als alles mit 'root' oder meinem 'ozbek'-Adminbenutzer zu machen (Least Privilege Prinzip).
 
 [source,bash]
 ----
@@ -34,45 +45,52 @@ sudo adduser nextcloud
 ----
 
 === 2.3. Firewall-Konfiguration (ufw)
-ufw wurde aktiviert. Der SSH-Zugriff wurde auf den UTM-Gateway (Host-Mac) beschränkt. HTTP/HTTPS-Ports wurden für den Dienst geöffnet.
+Die Firewall (ufw) ist unerlässlich. Ich habe sie so konfiguriert, dass sie standardmäßig alles blockiert und nur die notwendigen Dienste zulässt.
 
 [source,bash]
 ----
-# IP 192.168.64.1 ist der Gateway im "Shared" Modus von UTM
+# Wir sind im "Shared"-Netzwerkmodus von UTM. 
+# Der Host-Mac (also mein Laptop) greift immer über den Gateway 192.168.64.1 zu.
+# Daher erlaube ich SSH (Port 22) nur von dieser IP.
 sudo ufw allow from 192.168.64.1 to any port 22 proto tcp
+
+# HTTP (Port 80) und HTTPS (Port 443) werden für den Web-Zugriff benötigt.
 sudo ufw allow http
 sudo ufw allow https
+
+# Firewall aktivieren
 sudo ufw enable
 ----
 
 == 3. LAMP/LEMP-Stack Installation
+Dieser Abschnitt beschreibt die Installation des "LEMP" Stacks (Linux, **N**ginx, **M**ariaDB, **P**HP).
 
-Dieser Abschnitt beschreibt die Installation des "LEMP" Stacks (Linux, Nginx, MariaDB, PHP), der als Grundlage für Nextcloud dient. Vor der Installation der Pakete war ein `sudo apt update` notwendig, um die Paketlisten zu synchronisieren.
+*Wichtiger Hinweis:* Vor der Installation musste ich `sudo apt update` ausführen. Ich hatte anfangs einen `404 Not Found`-Fehler, weil meine Paketlisten (`apt`-Cache) veraltet waren und `apt` die Nginx-Pakete nicht finden konnte.
 
 === 3.1. Webserver (Nginx)
-Nginx wurde als leistungsstarker Webserver gewählt.
+[cite_start]Ich habe Nginx [cite: 118] als Webserver gewählt, da er als sehr performant gilt.
 
 [source,bash]
 ----
-sudo apt update
 sudo apt install nginx -y
 ----
-Nach der Installation war die Standard-Willkommensseite von Nginx unter `http://192.168.64.2` im Host-Browser erreichbar.
+Den Erfolg konnte ich sofort testen: `http://192.168.64.2` im Host-Browser zeigte die "Welcome to Nginx!"-Seite.
 
 === 3.2. Datenbank (MariaDB)
-MariaDB wurde als Datenbankserver installiert.
+Für die Speicherung der Nextcloud-Daten wird eine MariaDB-Datenbank verwendet.
 
 [source,bash]
 ----
 sudo apt install mariadb-server -y
 ----
-Unmittelbar nach der Installation wurde das `mysql_secure_installation`-Skript ausgeführt, um ein Root-Passwort festzulegen und die Standardeinstellungen abzusichern.
+Unmittelbar nach der Installation habe ich das `mysql_secure_installation`-Skript ausgeführt. Das ist ein wichtiges Security-Skript, das Fragen stellt (Root-Passwort setzen, Test-Datenbank löschen usw.), um die Datenbank abzusichern.
 
 === 3.3. PHP-FPM und Erweiterungen
-PHP-FPM (Version 8.3 auf Ubuntu 24.04) und alle von Nextcloud benötigten Erweiterungen  wurden installiert.
+Nextcloud ist in PHP geschrieben. [cite_start]Hier installiere ich PHP selbst (FPM) und alle Erweiterungen, die Nextcloud laut Dokumentation [cite: 119] benötigt (z.B. für Bilder, XML, ZIP).
 
 [source,bash]
 ----
+# Ubuntu 24.04 verwendet PHP 8.3, was auch funktioniert.
 sudo apt install php8.3-fpm php8.3-mysql php8.3-curl \
                  php8.3-gd php8.3-imagick php8.3-mbstring \
                  php8.3-xml php8.3-zip php8.3-intl \
@@ -80,27 +98,142 @@ sudo apt install php8.3-fpm php8.3-mysql php8.3-curl \
 ----
 
 === 3.4. PHP-Parameter Optimierung
-// Dieser Abschnitt wird in einer späteren Phase ausgefüllt.
+Die Standard-PHP-Werte sind für eine Cloud-Plattform viel zu niedrig (z.B. nur 2MB Upload). Ich habe die `php.ini` angepasst, damit auch größere Dateien hochgeladen werden können.
+
+[source,bash]
+----
+# Die Konfigurationsdatei für PHP-FPM bearbeiten
+sudo nano /etc/php/8.3/fpm/php.ini
+----
+In der Datei habe ich folgende Werte gesucht und geändert:
+* `memory_limit = 512M`
+* `upload_max_filesize = 512M`
+* `post_max_size = 512M`
+
+Damit die Änderungen wirksam werden, muss PHP-FPM neu gestartet werden:
+[source,bash]
+----
+sudo systemctl restart php8.3-fpm
+----
 
 == 4. Nextcloud-Installation und Konfiguration
+Jetzt wird die eigentliche Nextcloud-Anwendung eingerichtet.
 
-=== 4.1. Download und Verzeichnis setup
-// Befehle für wget, tar und Verzeichniserstellung [cite: 125]
-// Pfad: /var/www/nextcloud [cite: 121, 125]
+=== 4.1. MariaDB-Datenbank vorbereiten
+Bevor Nextcloud installiert wird, braucht es eine eigene Datenbank und einen Benutzer. Ich habe mich als `root` bei MariaDB angemeldet (`sudo mysql -u root -p`) und diese Befehle ausgeführt.
 
-=== 4.2. Eigentümer- und Dateirechte
-// chown und chmod Befehle zur Absicherung [cite: 126, 127, 128]
+[source,sql]
+----
+CREATE DATABASE nextcloud;
+CREATE USER 'nextcloud'@'localhost' IDENTIFIED BY '...ein_starkes_passwort...';
+GRANT ALL PRIVILEGES ON nextcloud.* TO 'nextcloud'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+----
 
-=== 4.3. Webserver-Konfiguration (Virtual Host / Server Block)
-// Inhalt der .conf Datei für Nginx/Apache hier einfügen [cite: 121]
+=== 4.2. Download und Verzeichnis setup
+[cite_start]Die Nextcloud-Dateien habe ich von der offiziellen Seite [cite: 124] [cite_start]heruntergeladen und direkt in das Zielverzeichnis `/var/www/` entpackt[cite: 125].
 
-=== 4.4. Web-Installer
-// Schritte zur Durchführung der Web-Installation (Datenbankverbindung) [cite: 129]
+[source,bash]
+----
+# 'unzip' wird zum Entpacken benötigt
+sudo apt install unzip -y
+
+# Download der neuesten stabilen Version
+wget https://download.nextcloud.com/server/releases/latest.zip
+
+# Entpacken in das Zielverzeichnis
+sudo unzip latest.zip -d /var/www/
+# (Das erstellt automatisch einen '/var/www/nextcloud'-Ordner)
+----
+
+=== 4.3. Eigentümer- und Dateirechte
+Das war ein kniffliger Teil. Die Rechte müssen korrekt gesetzt werden, damit der Webserver (als `www-data`) die Dateien lesen, aber nicht alles ändern kann.
+
+[source,bash]
+----
+# Zuerst sicherstellen, dass der 'nextcloud'-Benutzer existiert
+# (Dieser Schritt wurde bei der ersten Einrichtung übersehen, was zu Fehlern führte)
+sudo adduser nextcloud
+
+# Setzen des Eigentümers (Benutzer 'nextcloud') und der Gruppe (Gruppe 'www-data')
+sudo chown -R nextcloud:www-data /var/www/nextcloud
+
+# [cite_start]Setzen der Rechte (750) wie in der Aufgabe [cite: 128] gefordert
+sudo chmod -R 750 /var/www/nextcloud
+----
+
+=== 4.4. Nginx-Konfiguration für Nextcloud
+Jetzt muss Nginx wissen, dass es Anfragen an Nextcloud (und nicht an die "Welcome"-Seite) weiterleiten soll.
+
+[source,bash]
+----
+# 1. Standard-Seite deaktivieren
+sudo rm /etc/nginx/sites-enabled/default
+
+# 2. Neue Konfigurationsdatei für Nextcloud erstellen
+sudo nano /etc/nginx/sites-available/nextcloud.conf
+
+# 3. Konfiguration aktivieren (symbolischer Link)
+sudo ln -s /etc/nginx/sites-available/nextcloud.conf /etc/nginx/sites-enabled/
+
+# 4. Nginx-Konfiguration testen (SEHR WICHTIG!)
+sudo nginx -t
+# (Muss 'syntax is ok' und 'test is successful' zurückgeben)
+
+# 5. Nginx und PHP-FPM neu starten
+sudo systemctl restart nginx
+sudo systemctl restart php8.3-fpm
+----
+*(Der Inhalt der `nextcloud.conf`-Datei ist in Anhang 10.1 zu finden.)*
+
+=== 4.5. Installation (per Terminal)
+Der Web-Installer (`http://192.168.64.2`) hat bei mir nicht funktioniert (502 Bad Gateway-Fehler). Das lag an einem Problem zwischen Nginx und PHP-FPM, das ich nicht sofort lösen konnte.
+
+Ich habe die Installation daher direkt über das Terminal (mit dem `occ`-Befehl) durchgeführt. Das war viel schneller und umging das Webserver-Problem.
+
+*Troubleshooting (Fehlerbehebung) bei der Terminal-Installation:*
+
+1.  **Rechteproblem (config/data):** Zuerst gab es einen Fehler `Cannot write into "config" directory!` und `Cannot create ... "data" directory`.
+    * [cite_start]**Ursache:** Die Rechte `750` [cite: 128] erlauben der Gruppe (`www-data`) kein Schreiben (`w`), nur Lesen/Ausführen (`r-x`). Der `occ`-Befehl (als `www-data` ausgeführt) konnte die Konfigurationsdatei nicht erstellen.
+    * **Lösung:** Ich musste dem `www-data` (Gruppe) manuell Schreibrechte (`g+w`) auf die Hauptordner geben, *bevor* ich das Installationsskript ausgeführt habe.
+    [source,bash]
+    ----
+    sudo chmod g+w /var/www/nextcloud/config
+    sudo chmod g+w /var/www/nextcloud
+    ----
+
+2.  **Datenbank-Passwort-Fehler:** Nach der Behebung der Rechteprobleme kam `Access denied for user 'nextcloud'@'localhost'`.
+    * **Ursache:** Ich hatte das Passwort für die MariaDB falsch im Kopf.
+    * **Lösung:** Ich musste das Passwort in MariaDB (`sudo mysql -u root -p`) zurücksetzen:
+    [source,sql]
+    ----
+    ALTER USER 'nextcloud'@'localhost' IDENTIFIED BY '...ein_neues_Passwort...';
+    FLUSH PRIVILEGES;
+    EXIT;
+    ----
+
+Danach lief die Installation per Terminal (mit dem neuen, korrekten Passwort) erfolgreich durch:
+
+[source,bash]
+----
+sudo -u www-data php /var/www/nextcloud/occ maintenance:install \
+--database="mysql" \
+--database-host="localhost" \
+--database-name="nextcloud" \
+--database-user="nextcloud" \
+--database-pass="...das_neue_korrekte_Passwort..." \
+--admin-user="admin" \
+--admin-pass="...admin_passwort_fuer_nextcloud..."
+----
+*Ausgabe: `Nextcloud was successfully installed`*
+
+Nach diesem Schritt war das Nextcloud-Login-Fenster unter `http://192.168.64.2` sofort erreichbar.
 
 == 5. Sicherheit und Verschlüsselung
 
-=== 5.1. HTTPS mit Let's Encrypt (Certbot)
-[cite_start]Da es sich um eine lokale Testumgebung (Staging) ohne öffentliche Domain handelt, wurde wie in der Aufgabenstellung [cite: 31] beschrieben, ein selbstsigniertes Zertifikat (Self-Signed Certificate) anstelle von Let's Encrypt verwendet.
+=== 5.1. HTTPS mit selbstsigniertem Zertifikat
+[cite_start]Da es sich um eine lokale Testumgebung (Staging) ohne öffentliche Domain handelt, konnte ich kein Let's Encrypt-Zertifikat [cite: 131] verwenden. [cite_start]Wie in der Aufgabe [cite: 133] für Staging erlaubt, habe ich stattdessen ein selbstsigniertes Zertifikat mit `openssl` erstellt.
 
 [source,bash]
 ----
@@ -115,56 +248,82 @@ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 ----
 
 === 5.2. HTTPS-Erzwingung und HTTP/2
-[cite_start]Die Nginx-Konfiguration (`nextcloud.conf`) wurde aktualisiert, um SSL/TLS zu aktivieren und HTTP/2 zu nutzen[cite: 30]. [cite_start]Alle Anfragen an Port 80 (HTTP) werden automatisch mittels `return 301` auf Port 443 (HTTPS) umgeleitet, wie gefordert[cite: 30].
+[cite_start]Die Nginx-Konfiguration (`nextcloud.conf`) wurde aktualisiert, um SSL/TLS zu aktivieren und HTTP/2 zu nutzen[cite: 132]. [cite_start]Alle Anfragen an Port 80 (HTTP) werden automatisch mittels `return 301` auf Port 443 (HTTPS) umgeleitet[cite: 132].
 
 Die aktualisierte Nginx-Konfiguration ist in Anhang 10.1 zu finden.
 
 [source,bash]
 ----
+# Nginx-Konfigurationsdatei anpassen
 sudo nano /etc/nginx/sites-available/nextcloud.conf
+
+# Konfiguration testen und neu laden
 sudo nginx -t
 sudo systemctl restart nginx
 ----
 Der Browser zeigt bei `https://192.168.64.2` erwartungsgemäß eine Warnung an (da selbstsigniert), die Verbindung ist jedoch verschlüsselt.
 
 === 5.3. Nextcloud Interne Verschlüsselung
-// Dieser Abschnitt wird in einer späteren Phase ausgefüllt.
-
-== 6. Benutzer- und Datenmanagement (Intern)
-
-=== 6.1. Benutzer und Gruppen
-// Erstellte Gruppen: sales, support, management [cite: 136]
-// Erstellte Benutzer: user01...user20 [cite: 135]
-
-=== 6.2. Ordnerstrukturen und Freigaben
-// Beschreibung der implementierten Ordnerstruktur [cite: 137, 140]
-
-== 7. Backup- und Wiederherstellungsstrategie
-
-Gemäß den Anforderungen wurde eine Backup-Strategie implementiert, die aus einem automatisierten Bash-Skript und einem Cron-Job besteht.
-
-=== 7.1. Backup-Skript (backup_nextcloud.sh)
-Ein dediziertes Bash-Skript wurde unter `/usr/local/sbin/backup_nextcloud.sh` erstellt. Dieses Verzeichnis wurde gewählt, da es sich um ein vom Administrator erstelltes Skript handelt, das systemweite Aktionen (`systemctl`, `mysqldump`) als 'root' ausführt.
-
-Das Skript führt die folgenden Schritte aus:
-1.  Stoppt den Nginx-Webserver, um die Datenintegrität (atomares Backup) zu gewährleisten.
-2.  Erstellt ein `tar.gz`-Archiv des `/var/www/nextcloud`-Verzeichnisses.
-3.  Erstellt einen komprimierten `mysqldump` der `nextcloud`-Datenbank. (Verwendet `debian.cnf` für die passwortlose Ausführung durch 'root').
-4.  Startet den Nginx-Webserver sofort nach dem Backup wieder.
-5.  Löscht alle Backups (Dateien und DBs), die älter als 14 Tage sind (`RETENTION_DAYS=14`).
+[cite_start]Um die Kundendaten zu schützen[cite: 138], habe ich die serverseitige Verschlüsselung aktiviert. Dies habe ich auch über das Terminal (`occ`) gemacht.
 
 [source,bash]
 ----
-# Betreffendes Skript (Inhalt ist auch im Git-Repo):
-# /usr/local/sbin/backup_nextcloud.sh
+# Zuerst die Verschlüsselungs-App aktivieren
+sudo -u www-data php /var/www/nextcloud/occ app:enable encryption
+
+# Dann das Verschlüsselungsmodul initialisieren
+sudo -u www-data php /var/www/nextcloud/occ encryption:enable
+----
+
+== 6. Benutzer- und Datenmanagement (Intern)
+Die Benutzer- und Gruppenverwaltung (Aufgabe 5) wurde zur Automatisierung vollständig über die Kommandozeile (`occ`) durchgeführt. 20 Benutzer per Hand anzulegen wäre viel zu langsam gewesen.
+
+=== 6.1. Benutzer und Gruppen
+[cite_start]Zuerst wurden die drei geforderten Hauptgruppen (`sales`, `support`, `management`) [cite: 136] erstellt:
+
+[source,bash]
+----
+sudo -u www-data php /var/www/nextcloud/occ group:add sales
+sudo -u www-data php /var/www/nextcloud/occ group:add support
+sudo -u www-data php /var/www/nextcloud/occ group:add management
+----
+
+[cite_start]Anschließend wurden die 20 Testbenutzer (z.B. `user01` bis `user20`) [cite: 135] erstellt und diesen Gruppen zugewiesen.
+
+*Troubleshooting (Fehlerbehebung):* Der `--password-from-stdin`-Parameter funktionierte bei mir nicht (`option does not exist`).
+* **Lösung:** Ich habe den Parameter einfach weggelassen. `occ` fragt dann interaktiv (sicher) nach dem Passwort, was viel einfacher war.
+
+[source,bash]
+----
+# Beispiel für user01 in der Gruppe 'sales'
+sudo -u www-data php /var/www/nextcloud/occ user:add --group="sales" user01
+# (Anschließend wird das Passwort interaktiv abgefragt)
+----
+
+=== 6.2. Ordnerstrukturen und Freigaben
+Nachdem die Benutzer und Gruppen erstellt wurden, können im Nextcloud-Webinterface (als Admin angemeldet) Ordner erstellt (z.B. "Kundendatenbank") und diese für ganze Gruppen (z.B. "sales") mit Lese-/Schreibrechten freigegeben werden.
+
+== 7. Backup- und Wiederherstellungsstrategie
+[cite_start]Das war der kniffligste, aber auch wichtigste Teil der Aufgabe [cite: 141-149].
+
+=== 7.1. Backup-Skript (backup_nextcloud.sh)
+[cite_start]Ich habe ein Bash-Skript geschrieben, das alle Anforderungen [cite: 142] erfüllt. [cite_start]Es stoppt Nginx (wichtig für konsistente Daten!), macht ein `tar.gz` von den Dateien [cite: 144] [cite_start]und ein `mysqldump` von der DB[cite: 145]. Das Skript liegt unter `/usr/local/sbin/backup_nextcloud.sh`, da es als 'root' laufen muss.
+
+(Der vollständige Inhalt des Skripts ist im GitHub-Repository unter `scripts/backup_nextcloud.sh` zur Überprüfung.)
+
+[source,bash]
+----
+# Skript ausführbar machen
+sudo chmod +x /usr/local/sbin/backup_nextcloud.sh
 
 # Manuelle Ausführung zu Testzwecken:
 sudo /usr/local/sbin/backup_nextcloud.sh
 ----
-*(Der vollständige Inhalt des Skripts befindet sich im GitHub-Repository unter `scripts/backup_nextcloud.sh` zur Überprüfung.)*
+*(Ausgabe zeigte "Nginx wird gestoppt...", "Dateien gesichert...", "Nginx wird gestartet...", "Backup abgeschlossen".)*
 
 === 7.2. Automatisierung (Cron-Job)
-Um das Skript wie gefordert täglich um 02:00 Uhr nachts auszuführen, wurde ein Cron-Job für den `root`-Benutzer (via `sudo crontab -e`) erstellt. Alle Ausgaben (stdout und stderr) werden zur Protokollierung in eine Log-Datei umgeleitet.
+[cite_start]Um das Skript wie gefordert täglich um 02:00 Uhr nachts [cite: 148] auszuführen, habe ich einen Cron-Job für den `root`-Benutzer (via `sudo crontab -e`) erstellt.
+Die `>> ... 2>&1` am Ende sind wichtig, damit alle Ausgaben (auch Fehler) in eine Log-Datei geschrieben werden.
 
 [source,crontab]
 ----
@@ -173,40 +332,44 @@ Um das Skript wie gefordert täglich um 02:00 Uhr nachts auszuführen, wurde ein
 ----
 
 === 7.3. Dokumentation des Wiederherstellungstests
-Die Wiederherstellung (Recovery) ist der kritischste Teil. Der Prozess wurde wie folgt definiert und auf einer separaten Testinstanz (einem weiteren UTM-VM) validiert:
+Der beste Backup-Plan ist nutzlos, wenn die Wiederherstellung nicht funktioniert. Ich habe den Prozess auf einer zweiten, leeren UTM-VM getestet:
 
-1.  Installation eines sauberen Ubuntu-Servers mit identischem LEMP-Stack (Nginx, MariaDB, PHP 8.3).
-2.  Übertragen der letzten Backup-Archive (z.B. `nextcloud-files-....tar.gz` und `nextcloud-db-....sql.gz`) auf den neuen Server.
-3.  Erstellen der `nextcloud`-Datenbank und des `nextcloud`-Benutzers in MariaDB.
-4.  Importieren der SQL-Datenbank:
-    `# gunzip < nextcloud-db-....sql.gz | mysql -u nextcloud -p nextcloud`
-5.  Entpacken der Dateien in das korrekte Verzeichnis:
-    `# tar -zxpf nextcloud-files-....tar.gz -C /var/www/`
-6.  Anpassen der `config.php` (falls sich DB-Passwort oder Domain ändert).
-7.  Setzen der korrekten Berechtigungen (`chown`, `chmod`).
-8.  Neustart von Nginx und PHP-FPM.
+1.  Neue VM mit LEMP-Stack aufgesetzt.
+2.  Die zwei Backup-Dateien (`.tar.gz` und `.sql.gz`) rüberkopiert.
+3.  Datenbank importiert: `gunzip < db.sql.gz | mysql -u nextcloud -p nextcloud`
+4.  Dateien entpackt: `tar -zxpf files.tar.gz -C /var/www/`
+5.  Rechte gesetzt: `chown -R nextcloud:www-data /var/www/nextcloud` usw.
+6.  Services neu gestartet.
 
-Der Test wurde erfolgreich durchgeführt und die Datenintegrität bestätigt.
+Der Test war erfolgreich! Die Testinstanz lief mit allen Daten der Hauptinstanz.
 
 == 8. Monitoring und Logging
+[cite_start]Dieser Teil ist wichtig, um den Server im Auge zu behalten[cite: 150].
 
 === 8.1. Monitoring-Agent
-// Installation und Konfiguration (z.B. Prometheus Node Exporter) [cite: 151]
-// Überwachte Metriken [cite: 152, 153]
+[cite_start]Ich habe den `prometheus-node-exporter` installiert[cite: 151]. [cite_start]Das ist ein kleiner Agent, der auf Port 9100 läuft und Metriken (CPU, RAM, Disk [cite: 152]) für ein externes Prometheus-System bereitstellt.
+
+[source,bash]
+----
+sudo apt install prometheus-node-exporter -y
+----
+Den Zugriff auf Port 9100 habe ich in der Firewall (ufw) auf meinen Host-Mac (192.168.64.1) beschränkt.
 
 === 8.2. Zentralisiertes Logging
-// Konfiguration von rsyslog zur Weiterleitung an Graylog [cite: 154]
-// Wichtige Suchanfragen (z.B. 5xx-Statuscodes) [cite: 155]
+[cite_start]Für zentrales Logging (Aufgabe 7) habe ich `rsyslog` (das bereits installiert ist) konfiguriert, um alle wichtigen Logs (z.B. `auth`, `syslog`, `nginx`) an einen (noch nicht vorhandenen) zentralen Graylog-Server weiterzuleiten[cite: 154].
+
+[source,conf]
+----
+# In /etc/rsyslog.d/50-forward.conf hinzugefügt:
+*.* @graylog.example.com:514
+----
+Das ist eine "fire-and-forget"-Lösung, die den Server nicht verlangsamt.
 
 === 8.3. Alarmierung
-// Konfiguration der Benachrichtigungen (E-Mail/Slack) [cite: 156]
+[cite_start]Die Alarmierung [cite: 156] (z.B. "Disk > 80% voll" oder "Nextcloud-URL nicht erreichbar") würde im externen Monitoring-System (z.B. Prometheus Alertmanager) konfiguriert werden, das die Daten vom `node-exporter` (Schritt 8.1) sammelt.
 
 == 9. Performance-Optimierung (Optional)
-
-=== 9.1. Caching (Redis/APCu)
-== 9. Performance-Optimierung (Optional)
-
-Wie in der Aufgabe  empfohlen, wurde Redis für das Caching (Local, Distributed und File Locking) aktiviert, um die Gesamtleistung von Nextcloud zu verbessern.
+[cite_start]Wie in der Aufgabe empfohlen[cite: 158], habe ich Redis für das Caching aktiviert, um die Gesamtleistung von Nextcloud zu verbessern.
 
 === 9.1. Caching (Redis/APCu)
 Zuerst wurden Redis und das notwendige PHP-Redis-Modul installiert.
@@ -219,9 +382,11 @@ sudo systemctl status redis-server
 
 Anschließend wurde die Hauptkonfigurationsdatei von Nextcloud (`config.php`) bearbeitet, um Redis als Memcache-Backend zu definieren.
 
+*Wichtiger Hinweis:* Die Bearbeitung der `config.php` muss als `www-data`-Benutzer erfolgen, um die Dateiberechtigungen nicht zu beschädigen.
+
 [source,bash]
 ----
-# Bearbeitung als www-data Benutzer, um Berechtigungen beizubehalten
+# Bearbeitung als www-data Benutzer
 sudo -u www-data nano /var/www/nextcloud/config/config.php
 ----
 
@@ -244,53 +409,55 @@ sudo systemctl restart nginx
 sudo systemctl restart php8.3-fpm
 ----
 
+== 10. Angehängte Konfigurationsdateien
+Hier sind die wichtigsten Konfigurationsdateien, die für dieses Setup erstellt oder geändert wurden.
+
 === 10.1. Nginx Server Block (nextcloud.conf)
-[cite_start]Dies ist die endgültige Konfiguration, die HTTPS (Port 443) mit einem selbstsignierten Zertifikat bereitstellt und HTTP (Port 80) auf HTTPS umleitet[cite: 19, 30].
+Dies ist die endgültige Nginx-Konfiguration. [cite_start]Sie stellt HTTPS auf Port 443 (mit dem selbstsignierten Zertifikat) bereit und leitet alle HTTP-Anfragen (Port 80) auf HTTPS um[cite: 132].
 
 [source,nginx]
 ----
-# HTTP (80) Server -> HTTPS 
+# HTTP (80) Server -> Leitet auf HTTPS um
 server {
     listen 80;
     listen [::]:80;
     server_name 192.168.64.2;
     
-
+    # 301 Redirect auf die HTTPS-Version
     return 301 https://$host$request_uri;
 }
 
-# HTTPS (443) -> Nextcloud 
+# HTTPS (443) Server -> Hier läuft Nextcloud
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
     server_name 192.168.64.2;
 
-    # SSL Einstellung / Zertifikat Verscjüllselung
+    # SSL-Einstellungen für das selbstsignierte Zertifikat
     ssl_certificate /etc/nginx/ssl/nextcloud.crt;
     ssl_certificate_key /etc/nginx/ssl/nextcloud.key;
     
+    # SSL-Protokolle (moderne, sichere Einstellungen)
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';
     ssl_prefer_server_ciphers off;
 
-    # Nextcloud 
+    # Hauptverzeichnis für Nextcloud
     root /var/www/nextcloud;
     index index.php index.html /index.php$request_uri;
 
+    # Log-Dateien
     access_log /var/log/nginx/nextcloud.access.log;
     error_log /var/log/nginx/nextcloud.error.log;
 
+    # Security Headers (empfohlen von Nextcloud)
     add_header X-Content-Type-Options nosniff;
     add_header X-Frame-Options "SAMEORIGIN";
 
+    # Maximale Upload-Größe (passend zu php.ini)
     client_max_body_size 512M;
 
-    location = /robots.txt {
-        allow all;
-        log_not_found off;
-        access_log off;
-    }
-
+    # Zugriff auf sensible Ordner blockieren
     location ~ ^\/(?:build|tests|config|lib|3rdparty|templates|data)\/ {
         deny all;
     }
@@ -298,6 +465,7 @@ server {
         deny all;
     }
 
+    # PHP-FPM Anfragen weiterleiten
     location ~ \.php(?:$|\/) {
         fastcgi_split_path_info ^(.+?\.php)(\/.*|)$;
         set $path_info $fastcgi_path_info;
@@ -312,6 +480,45 @@ server {
         fastcgi_request_buffering off;
     }
 }
+----
+
+=== 10.2. Nextcloud (config.php) (Auszug)
+Hier ist ein Auszug aus der `config.php`, der die wichtigsten Anpassungen zeigt (Datenbank und Redis-Caching). Passwörter und Salts wurden entfernt.
+
+[source,php]
+----
+<?php
+$CONFIG = [
+  'instanceid' => '...',
+  'passwordsalt' => '...',
+  'secret' => '...',
+  'trusted_domains' => 
+  [
+    0 => '192.168.64.2',
+  ],
+  'datadirectory' => '/var/www/nextcloud/data',
+  'dbtype' => 'mysql',
+  'version' => '...',
+  'overwrite.cli.url' => 'https://192.168.64.2',
+  'dbname' => 'nextcloud',
+  'dbhost' => 'localhost',
+  'dbport' => '',
+  'dbtableprefix' => 'oc_',
+  'mysql.utf8mb4' => true,
+  'dbuser' => 'nextcloud',
+  'dbpassword' => '...VERSTECKT...', // Passwort entfernt
+  'installed' => true,
+  
+  // Hinzugefügt für Redis Caching (Phase 9)
+  'memcache.local' => '\OC\Memcache\Redis',
+  'memcache.distributed' => '\OC\Memcache\Redis',
+  'redis' => 
+  [
+    'host' => 'localhost',
+    'port' => 6379,
+  ],
+  'memcache.locking' => '\OC\Memcache\Redis',
+];
 ----
 
 
