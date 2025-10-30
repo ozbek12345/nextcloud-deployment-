@@ -357,7 +357,7 @@ Das ist eine "fire-and-forget"-Lösung, die den Server nicht verlangsamt.
 [cite_start]Die Alarmierung [cite: 156] (z.B. "Disk > 80% voll" oder "Nextcloud-URL nicht erreichbar") würde im externen Monitoring-System (z.B. Prometheus Alertmanager) konfiguriert werden, das die Daten vom `node-exporter` (Schritt 8.1) sammelt.
 
 == 9. Performance-Optimierung (Optional)
-[cite_start]Wie in der Aufgabe empfohlen[cite: 158], habe ich Redis für das Caching aktiviert, um die Gesamtleistung von Nextcloud zu verbessern.
+[cite_start]Wie in der Aufgabe empfohlen[cite: 158], habe ich Redis für das Caching aktiviert, um die Gesamtleistung von Nextcloud zu verbessern. (da ich schon vorher mit Redis Erfahrung habe) - 
 
 === 9.1. Caching (Redis/APCu)
 Zuerst wurden Redis und das notwendige PHP-Redis-Modul installiert.
@@ -508,6 +508,7 @@ $CONFIG = [
   'memcache.locking' => '\OC\Memcache\Redis',
 ];
 ----
+
 
 
 
