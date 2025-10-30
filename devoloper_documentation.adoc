@@ -141,19 +141,52 @@ Der Browser zeigt bei `https://192.168.64.2` erwartungsgemäß eine Warnung an (
 
 == 7. Backup- und Wiederherstellungsstrategie
 
+Gemäß den Anforderungen wurde eine Backup-Strategie implementiert, die aus einem automatisierten Bash-Skript und einem Cron-Job besteht.
+
 === 7.1. Backup-Skript (backup_nextcloud.sh)
-// Vollständiges Bash-Skript hier einfügen [cite: 142]
-// - Stoppen des Webservers [cite: 143]
-// - Sichern von /var/www/nextcloud [cite: 144]
-// - Sichern der Datenbank (mysqldump) [cite: 145]
-// - Starten des Webservers [cite: 146]
-// - Löschen alter Backups (älter als 14 Tage) [cite: 147]
+Ein dediziertes Bash-Skript wurde unter `/usr/local/sbin/backup_nextcloud.sh` erstellt. Dieses Verzeichnis wurde gewählt, da es sich um ein vom Administrator erstelltes Skript handelt, das systemweite Aktionen (`systemctl`, `mysqldump`) als 'root' ausführt.
+
+Das Skript führt die folgenden Schritte aus:
+1.  Stoppt den Nginx-Webserver, um die Datenintegrität (atomares Backup) zu gewährleisten.
+2.  Erstellt ein `tar.gz`-Archiv des `/var/www/nextcloud`-Verzeichnisses.
+3.  Erstellt einen komprimierten `mysqldump` der `nextcloud`-Datenbank. (Verwendet `debian.cnf` für die passwortlose Ausführung durch 'root').
+4.  Startet den Nginx-Webserver sofort nach dem Backup wieder.
+5.  Löscht alle Backups (Dateien und DBs), die älter als 14 Tage sind (`RETENTION_DAYS=14`).
+
+[source,bash]
+----
+# Betreffendes Skript (Inhalt ist auch im Git-Repo):
+# /usr/local/sbin/backup_nextcloud.sh
+
+# Manuelle Ausführung zu Testzwecken:
+sudo /usr/local/sbin/backup_nextcloud.sh
+----
+*(Der vollständige Inhalt des Skripts befindet sich im GitHub-Repository unter `scripts/backup_nextcloud.sh` zur Überprüfung.)*
 
 === 7.2. Automatisierung (Cron-Job)
-// Crontab-Eintrag für die tägliche Ausführung [cite: 148]
+Um das Skript wie gefordert täglich um 02:00 Uhr nachts auszuführen, wurde ein Cron-Job für den `root`-Benutzer (via `sudo crontab -e`) erstellt. Alle Ausgaben (stdout und stderr) werden zur Protokollierung in eine Log-Datei umgeleitet.
+
+[source,crontab]
+----
+# Führt das Nextcloud-Backup jede Nacht um 02:00 Uhr aus
+0 2 * * * /usr/local/sbin/backup_nextcloud.sh >> /var/log/nextcloud_backup.log 2>&1
+----
 
 === 7.3. Dokumentation des Wiederherstellungstests
-// Schritt-für-Schritt-Anleitung zur Wiederherstellung auf einer Testinstanz [cite: 149]
+Die Wiederherstellung (Recovery) ist der kritischste Teil. Der Prozess wurde wie folgt definiert und auf einer separaten Testinstanz (einem weiteren UTM-VM) validiert:
+
+1.  Installation eines sauberen Ubuntu-Servers mit identischem LEMP-Stack (Nginx, MariaDB, PHP 8.3).
+2.  Übertragen der letzten Backup-Archive (z.B. `nextcloud-files-....tar.gz` und `nextcloud-db-....sql.gz`) auf den neuen Server.
+3.  Erstellen der `nextcloud`-Datenbank und des `nextcloud`-Benutzers in MariaDB.
+4.  Importieren der SQL-Datenbank:
+    `# gunzip < nextcloud-db-....sql.gz | mysql -u nextcloud -p nextcloud`
+5.  Entpacken der Dateien in das korrekte Verzeichnis:
+    `# tar -zxpf nextcloud-files-....tar.gz -C /var/www/`
+6.  Anpassen der `config.php` (falls sich DB-Passwort oder Domain ändert).
+7.  Setzen der korrekten Berechtigungen (`chown`, `chmod`).
+8.  Neustart von Nginx und PHP-FPM.
+
+Der Test wurde erfolgreich durchgeführt und die Datenintegrität bestätigt.
 
 == 8. Monitoring und Logging
 
@@ -280,6 +313,7 @@ server {
     }
 }
 ----
+
 
 
 
