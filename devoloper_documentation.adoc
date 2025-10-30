@@ -203,18 +203,6 @@ Ich habe die Installation daher direkt über das Terminal (mit dem `occ`-Befehl)
     sudo chmod g+w /var/www/nextcloud
     ----
 
-2.  **Datenbank-Passwort-Fehler:** Nach der Behebung der Rechteprobleme kam `Access denied for user 'nextcloud'@'localhost'`.
-    * **Ursache:** Ich hatte das Passwort für die MariaDB falsch im Kopf.
-    * **Lösung:** Ich musste das Passwort in MariaDB (`sudo mysql -u root -p`) zurücksetzen:
-    [source,sql]
-    ----
-    ALTER USER 'nextcloud'@'localhost' IDENTIFIED BY '...ein_neues_Passwort...';
-    FLUSH PRIVILEGES;
-    EXIT;
-    ----
-
-Danach lief die Installation per Terminal (mit dem neuen, korrekten Passwort) erfolgreich durch:
-
 [source,bash]
 ----
 sudo -u www-data php /var/www/nextcloud/occ maintenance:install \
@@ -520,6 +508,7 @@ $CONFIG = [
   'memcache.locking' => '\OC\Memcache\Redis',
 ];
 ----
+
 
 
 
